@@ -1,163 +1,190 @@
+import math
 import flet as ft
+from flet import (
+    Container,
+    UserControl,
+    Theme,
+    ColorScheme,
+    colors,
+    ThemeMode,
+    OutlinedButton,
+    CrossAxisAlignment,
+    Page,
+    Tab,
+    Tabs,
+    Text,
+    MainAxisAlignment,
+    margin,
+    padding,
+    Column,
+    Row,
+    TextField,
+    icons,
+    FontWeight,
+    alignment,
+)
 
 
-def main(page: ft.Page):
+def width_calculate(width:int):
+    golden_ratio = (1 + math.sqrt(5)) / 2
+    return width, width / golden_ratio
 
-    page.vertical_alignment = ft.MainAxisAlignment.CENTER
-    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-    page.window_visible = True
+class ButtonOnlyLayout(UserControl):
+    def __init__(self, 
+                button_name:str,
+                margin_param:int=100,
+                icon:str=None,
+                on_click_event=None):
+        
+        super().__init__(self)
+        self.button_name = button_name
+        self.margin_param = margin_param
+        self.icon = icon
+        self.on_click_event = on_click_event
 
-    top_left_x = ft.TextField(
-        hint_text="左上 X座標", expand=True, bgcolor=ft.colors.WHITE24)
-    top_left_y = ft.TextField(
-        hint_text="左上 Y座標", expand=True, bgcolor=ft.colors.WHITE24)
-    bottom_right_x = ft.TextField(
-        hint_text="右下 X座標", expand=True, bgcolor=ft.colors.WHITE24)
-    bottom_right_y = ft.TextField(
-        hint_text="右下 Y座標", expand=True, bgcolor=ft.colors.WHITE24)
-
-    locate_edits = ft.Column(
-        width=100,
-        controls=[
-            ft.Row(
+    def build(self):
+        calc_width, calc_height = width_calculate(width=500)
+        self.button_only_layout = Column(
                 controls=[
-                    top_left_x,
-                    top_left_y,
-                    bottom_right_x,
-                    bottom_right_y
+                    Container(
+                        content=Container(
+                            theme=Theme(color_scheme=ColorScheme(primary=colors.PINK_100)),
+                            padding=0,
+                            margin=0,
+                            theme_mode=ThemeMode.LIGHT,
+                            content=OutlinedButton(
+                                text=self.button_name,
+                                icon=self.icon,
+                                on_click=self.on_click_event,
+                            )
+                        ),
+                        margin=margin.only(top=self.margin_param),
+                        padding=padding.only(left=80, top=70, bottom=70,right=80),
+                        width=calc_width,
+                        height=250,
+                        # bgcolor=colors.WHITE54
+                    ),
+                ]
+        )
+        return self.button_only_layout
+
+
+
+def main(page:Page):
+    page.vertical_alignment = MainAxisAlignment.CENTER
+    page.horizontal_alignment = CrossAxisAlignment.CENTER
+    width, height = width_calculate(width=1050)
+    page.window_width = width
+    page.window_height = height
+    page.window_resizable = False
+    page.update()
+    screenshots_view = ButtonOnlyLayout("スクリーンショット開始", margin_param=45)
+    create_pdf_view = ButtonOnlyLayout("PDF作成", margin_param=40)
+
+    def get_directory_result(e: ft.FilePickerResultEvent):
+        directory_path.content.value = e.path if e.path else ""
+        directory_path.update()
+
+    get_directory_dialog = ft.FilePicker(on_result=get_directory_result)
+    directory_path = Container(
+                        content=Text(
+                                    size=18,
+                                    weight=FontWeight.BOLD
+                                ),
+                        width=500,
+                        height=50,
+                        alignment=alignment.center
+                    )
+
+    page.overlay.append(get_directory_dialog)
+
+    get_locates_view = ButtonOnlyLayout("座標を取得する", margin_param=-5)
+    file_pick_view = ButtonOnlyLayout("ファイルを取得する", 
+                                        margin_param=-5, 
+                                        icon=icons.FOLDER_OPEN,
+                                        on_click_event=lambda _: get_directory_dialog.get_directory_path())
+
+    locate_edits = Column(
+        controls=[
+            Row(
+                controls=[
+                    TextField(hint_text="左上 X", expand=True, bgcolor=colors.WHITE24),
+                    TextField(hint_text="左上 Y", expand=True, bgcolor=colors.WHITE24),
+                    TextField(hint_text="右下 X", expand=True, bgcolor=colors.WHITE24),
+                    TextField(hint_text="右下 Y", expand=True, bgcolor=colors.WHITE24)
                 ],
             ),
         ],
     )
 
-    left_view = ft.Column(
-        [
-            ft.Row(
-                [
-                    ft.Container(
-                        content=locate_edits,
-                        # bgcolor=ft.colors.WHITE38,
-                        margin=15,
-                        padding=50,
-                        width=582,
-                        height=375,
-                        border_radius=10,
-                    ),
-                    ft.Container(
-                        content=ft.Container(
-                            theme=ft.Theme(color_scheme=ft.ColorScheme(
-                                primary=ft.colors.PINK_100)),
-                            padding=10,
-                            margin=100,
-                            theme_mode=ft.ThemeMode.LIGHT,
-                            content=ft.OutlinedButton(
-                                text="スクリーンショット撮影",
-                            )
-                        ),
-                        margin=10,
-                        padding=30,
-                        width=582,
-                        height=375,
-                        border_radius=10,
-                    )
-                ]
-            )
-        ]
-    )
 
-    def pick_files_result(e: ft.FilePickerResultEvent):
-        selected_files.value = (
-            ", ".join(map(lambda f: f.name, e.files)
-                      ) if e.files else "Cancelled!"
-        )
-        selected_files.update()
 
-    pick_files_dialog = ft.FilePicker(on_result=pick_files_result)
-    selected_files = ft.Text(
-                        size=20,
-                        color=ft.colors.WHITE,
-                        weight=ft.FontWeight.NORMAL,
-                    )
-
-    page.overlay.append(pick_files_dialog)
-
-    right_view = ft.Column(
-        [
-            ft.Row(
-                [
-                    ft.Container(
-                        content=ft.Container(
-                            content=ft.Column(
-                                controls=[
-                                    ft.Container(
-                                        content=ft.OutlinedButton(
-                                            "Pick files",
-                                            icon=ft.icons.UPLOAD_FILE,
-                                            on_click=lambda _: pick_files_dialog.pick_files(
-                                                allow_multiple=True
-                                            ),
-                                        ),
-                                        theme=ft.Theme(color_scheme=ft.ColorScheme(primary=ft.colors.PINK_100)),
-                                        width=325,
-                                        height=100,                                   
-                                        border_radius=10,
-                                    ),                        
-                                    selected_files
-                                ],
-                            ),
-                            alignment=ft.alignment.center,
-                            margin=ft.margin.only(top=100),
-                        ),
-                        margin=10,
-                        padding=30,
-                        width=582,
-                        height=375,
-                        border_radius=10,
-                    ),
-                    ft.Container(
-                        content=ft.Container(
-                            theme=ft.Theme(color_scheme=ft.ColorScheme(
-                                primary=ft.colors.PINK_100)),
-                            padding=10,
-                            margin=100,
-                            theme_mode=ft.ThemeMode.LIGHT,
-                            content=ft.OutlinedButton(
-                                text="PDF作成",
-                            )
-                        ),
-                        margin=10,
-                        padding=30,
-                        width=582,
-                        height=375,
-                        border_radius=10,
-                    )
-                ]
-            )
-        ]
-    )
-
-    t = ft.Tabs(
+    main_layout = Tabs(
         selected_index=0,
         animation_duration=300,
-        label_color=ft.colors.PINK_100,
+        label_color=colors.PINK_100,
         overlay_color="hovered",
-        width=1220,
-        height=650,
-        indicator_padding=10,
+        width=width,
+        height=height,
         tabs=[
-            ft.Tab(
+            Tab(
                 text="スクリーンショット実施",
-                content=left_view,
+                content=Column(
+                    [
+                        Row(
+                            controls=[
+                                Column(
+                                    [
+                                        Container(
+                                            content=locate_edits,
+                                            padding=padding.only(top=40),
+                                            width=500,
+                                        ),
+                                        get_locates_view,
+                                        Container(
+                                            content=Text(
+                                                "ここに座標が表示されます",
+                                                weight=FontWeight.BOLD,
+                                                size=32,
+                                            ),
+                                            width=500,
+                                            alignment=alignment.center
+                                        )
+                                    ]
+                                ),
+                                #ここは変えない
+                                screenshots_view,
+                            ]
+                        )
+                    ]
+                ),
             ),
-            ft.Tab(
+            Tab(
                 text="PDF作成",
-                content=right_view
+                content=Column(
+                    [
+                        Row(
+                            controls=[
+                                Column(
+                                    [
+                                        Container(
+                                            padding=padding.only(top=95),
+                                            width=500,
+                                        ),
+                                        file_pick_view,
+                                        directory_path
+                                    ]
+                                ),
+                                #ここは変えない
+                                create_pdf_view,
+                            ]
+                        )
+                    ]
+                ),
             ),
         ],
     )
-    page.add(t)
-    
-
+    page.add(main_layout)
 
 if __name__ == '__main__':
     ft.app(target=main)
