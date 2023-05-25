@@ -32,35 +32,6 @@ from flet import (
 
 
 
-def locate():
-    print("実行されました")
-    try:
-        while True:
-            x, y = pgui.position()
-            positionStr = 'X: ' + str(x).rjust(4) + ' Y: ' + str(y).rjust(4)
-            print(positionStr, end='')
-            print('\b' * len(positionStr), end='', flush=True)
-    except KeyboardInterrupt:
-        print('\n')
-
-
-def page_screenshots(page_count:int, x1:int, y1:int, x2:int, y2:int):
-
-    pgui.confirm(text='Kindleの画面に移動しましたか？',title='確認',buttons=['はい','いいえ'])
-
-    # 出力フォルダ作成(フォルダ名：頭文字_年月日時分秒)
-    folder_name = "output" + "_" + str(datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
-    os.mkdir(folder_name)
-
-    for p in range(page_count):
-        out_filename = f"picture_{str(p+1).zfill(4)}.png"
-        screenshot = pgui.screenshot(region=(x1, y1, x2, y2))
-        screenshot.save(f"{folder_name}/{out_filename}")
-        # ページスクロールの引数を入れる
-        pgui.keyDown('right')
-        time.sleep(0.5)
-
-
 def width_calculate(width:int):
     golden_ratio = (1 + math.sqrt(5)) / 2
     return width, width / golden_ratio
@@ -114,31 +85,8 @@ def main(page:Page):
     page.window_height = height
     page.window_resizable = False
     page.update()
-    screenshots_view = ButtonOnlyLayout("スクリーンショット開始", margin_param=45)
-    create_pdf_view = ButtonOnlyLayout("PDF作成", margin_param=40)
+    create_pdf_view = ButtonOnlyLayout("PDF作成", margin_param=0)
 
-    def get_directory_result(e: ft.FilePickerResultEvent):
-        directory_path.content.value = e.path if e.path else ""
-        directory_path.update()
-
-    get_directory_dialog = ft.FilePicker(on_result=get_directory_result)
-    directory_path = Container(
-                        content=Text(
-                                    size=18,
-                                    weight=FontWeight.BOLD
-                                ),
-                        width=500,
-                        height=50,
-                        alignment=alignment.center
-                    )
-
-    page.overlay.append(get_directory_dialog)
-    
-    get_locates_view = ButtonOnlyLayout(button_name="座標を取得する", 
-                                        margin_param=-5,
-                                        # 終了条件を返していないし、画面に表示できていない
-                                        on_click_event=lambda _: get_directory_dialog.get_directory_path())
-    
     def get_directory_result(e: ft.FilePickerResultEvent):
         directory_path.content.value = e.path if e.path else ""
         directory_path.update()
@@ -157,65 +105,72 @@ def main(page:Page):
     page.overlay.append(get_directory_dialog)
     
     file_pick_view = ButtonOnlyLayout("ファイルを取得する", 
-                                        margin_param=-5, 
+                                        margin_param=0, 
                                         icon=icons.FOLDER_OPEN,
                                         on_click_event=lambda _: get_directory_dialog.get_directory_path())
+
+
+    def yes_click_button(e):
+        dlg_modal.open = False
+
+        # 出力フォルダ作成(フォルダ名：頭文字_年月日時分秒)
+        folder_name = "output" + "_" + str(datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
+        os.mkdir(folder_name)
+
+        for p in range(1):
+            out_filename = f"picture_{str(p+1).zfill(4)}.png"
+            # 範囲の対応は一旦なし
+            screenshot = pgui.screenshot()
+            screenshot.save(f"{folder_name}/{out_filename}")
+            # ページスクロールの引数を入れる
+            pgui.keyDown('right')
+            time.sleep(0.5)
+            
+        page.update()
+
+    def close_dlg_no(e):
+        dlg_modal.open = False
+        page.update()
+
+    def open_dlg_modal(e):
+        page.dialog = dlg_modal
+        dlg_modal.open = True
+        page.update()
+
+    dlg_modal = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Please confirm"),
+        content=ft.Text("Do you really want to delete all those files?"),
+        actions=[
+            ft.TextButton("Yes", on_click=yes_click_button),
+            ft.TextButton("No", on_click=close_dlg_no),
+        ],
+        actions_alignment=ft.MainAxisAlignment.END,
+        on_dismiss=lambda e: print("Modal dialog dismissed!"),
+    )
+    screenshots_view = ButtonOnlyLayout("スクリーンショット開始", 
+                                        margin_param=50,
+                                        icon=icons.CAMERA_ALT_OUTLINED,
+                                        on_click_event=open_dlg_modal)
+
 
     locate_edits = Column(
         controls=[
             Row(
                 controls=[
-                    TextField(hint_text="左上X", expand=True, bgcolor=colors.WHITE24),
-                    TextField(hint_text="左上Y", expand=True, bgcolor=colors.WHITE24),
-                    TextField(hint_text="右下X", expand=True, bgcolor=colors.WHITE24),
-                    TextField(hint_text="右下Y", expand=True, bgcolor=colors.WHITE24),
-                    TextField(hint_text="数", expand=True, bgcolor=colors.WHITE24),
-                    TextField(hint_text="ページ送り", expand=True, bgcolor=colors.WHITE24),
+                    TextField(hint_text="ページ数", expand=True, bgcolor=colors.WHITE24,),
+                    ft.Dropdown(
+                        width=100,
+                        options=[
+                            ft.dropdown.Option("right"),
+                            ft.dropdown.Option("left"),
+                        ],
+                    )
                 ],
             ),
         ],
     )
 
-    def button_clicked(e):
-        if button_content.text == "押したらEnterキーを押す":
-            button_content.text = "処理を終了する"
-            clicked_change_theme.color_scheme.primary = colors.BLUE_100
-        elif button_content.text == "処理を終了する":
-            button_content.text = "押したらEnterキーを押す"
-            clicked_change_theme.color_scheme.primary = colors.PINK_100
-        page.update()
-
-    button_content = OutlinedButton(text="押したらEnterキーを押す", on_click=button_clicked)
-    clicked_change_theme = Theme(color_scheme=ColorScheme(primary=colors.PINK_100))
-
-    button_width, _ = width_calculate(width=500)
-    text_layout = Container(
-                        content=Text(
-                                    value="test",
-                                    size=18,
-                                    weight=FontWeight.BOLD
-                                ),
-                        width=500,
-                        height=50,
-                        alignment=alignment.center
-                    )
-    locate_button_layout = Column(
-            controls=[
-                Container(
-                    content=Container(
-                        theme=clicked_change_theme,
-                        padding=0,
-                        margin=0,
-                        theme_mode=ThemeMode.LIGHT,
-                        content=button_content
-                    ),
-                    margin=margin.only(top=-5),
-                    padding=padding.only(left=80, top=70, bottom=70, right=80),
-                    width=button_width,
-                    height=250,
-                ),
-            ]
-    )
 
     main_layout = Tabs(
         selected_index=0,
@@ -235,13 +190,12 @@ def main(page:Page):
                                     [
                                         Container(
                                             content=locate_edits,
-                                            padding=padding.only(top=40),
+                                            padding=padding.only(top=40,left=40, right=60),
                                             width=500,
+                                            # bgcolor=colors.AMBER_400,
                                         ),
-                                        locate_button_layout,
                                         Container(
                                             content=Text(
-                                                "ここに座標が表示されます",
                                                 weight=FontWeight.BOLD,
                                                 size=32,
                                             ),
@@ -266,7 +220,7 @@ def main(page:Page):
                                 Column(
                                     [
                                         Container(
-                                            padding=padding.only(top=95),
+                                            padding=padding.only(top=45),
                                             width=500,
                                         ),
                                         file_pick_view,
