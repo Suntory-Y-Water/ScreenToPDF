@@ -3,33 +3,10 @@ import math
 import time
 import datetime
 import pyautogui as pgui
-
 import flet as ft
-from flet import (
-    Container,
-    UserControl,
-    Theme,
-    ColorScheme,
-    colors,
-    ThemeMode,
-    OutlinedButton,
-    CrossAxisAlignment,
-    Page,
-    Tab,
-    Tabs,
-    Text,
-    MainAxisAlignment,
-    margin,
-    padding,
-    Column,
-    Row,
-    TextField,
-    icons,
-    FontWeight,
-    alignment,
-)
-
-
+from flet import *
+from typing import Optional
+from pyautogui import FailSafeException
 
 
 def width_calculate(width:int):
@@ -80,6 +57,8 @@ class ButtonOnlyLayout(UserControl):
 def main(page:Page):
     page.vertical_alignment = MainAxisAlignment.CENTER
     page.horizontal_alignment = CrossAxisAlignment.CENTER
+    page_scroll = Text()
+    page_count = Text()
     width, height = width_calculate(width=1050)
     page.window_width = width
     page.window_height = height
@@ -110,67 +89,109 @@ def main(page:Page):
                                         on_click_event=lambda _: get_directory_dialog.get_directory_path())
 
 
-    def yes_click_button(e):
-        dlg_modal.open = False
-
-        # 出力フォルダ作成(フォルダ名：頭文字_年月日時分秒)
-        folder_name = "output" + "_" + str(datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
-        os.mkdir(folder_name)
-
-        for p in range(1):
-            out_filename = f"picture_{str(p+1).zfill(4)}.png"
-            # 範囲の対応は一旦なし
-            screenshot = pgui.screenshot()
-            screenshot.save(f"{folder_name}/{out_filename}")
-            # ページスクロールの引数を入れる
-            pgui.keyDown('right')
-            time.sleep(0.5)
-            
-        page.update()
-
-    def close_dlg_no(e):
-        dlg_modal.open = False
-        page.update()
-
-    def open_dlg_modal(e):
-        page.dialog = dlg_modal
-        dlg_modal.open = True
-        page.update()
-
-    dlg_modal = ft.AlertDialog(
-        modal=True,
-        title=ft.Text("Please confirm"),
-        content=ft.Text("Do you really want to delete all those files?"),
-        actions=[
-            ft.TextButton("Yes", on_click=yes_click_button),
-            ft.TextButton("No", on_click=close_dlg_no),
-        ],
-        actions_alignment=ft.MainAxisAlignment.END,
-        on_dismiss=lambda e: print("Modal dialog dismissed!"),
+    # 文章は動的にする
+    title_text = ft.Text(size=30,text_align=ft.TextAlign.CENTER, style=ft.TextThemeStyle.DISPLAY_MEDIUM, )
+    dlg = ft.AlertDialog(
+        title=title_text,
     )
+
+    def screenshots_start_click_button(e):
+        count = page_count.value
+
+        if count == None:
+            title_text.value = "空白にしないでください"
+            page.dialog = dlg
+            dlg.open = True
+            page.update()
+            return
+
+        if not count.isdigit():
+            title_text.value = "数字を入力してください"
+            page.dialog = dlg
+            dlg.open = True
+            page.update()
+            return
+
+        if page_scroll.value == None:
+            title_text.value = "ページスクロールを設定してください"
+            page.dialog = dlg
+            dlg.open = True
+            page.update()
+            return
+
+        try:
+            title_text.value = "5秒以内にKindleのページへ移動してください。"
+            page.dialog = dlg
+            dlg.open = True
+            page.update()
+
+            time.sleep(5)
+
+            page.dialog = dlg
+            dlg.open = False
+            page.update()
+
+            # 出力フォルダ作成(フォルダ名：頭文字_年月日時分秒)
+            folder_name = "output" + "_" + str(datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
+            os.mkdir(folder_name)
+            for p in range(int(count)):
+                out_filename = f"picture_{str(p+1).zfill(4)}.png"
+                # 範囲の対応は一旦なし
+                screenshot = pgui.screenshot()
+                screenshot.save(f"{folder_name}/{out_filename}")
+                # ページスクロールの引数を入れる
+                pgui.keyDown(page_scroll.value)
+                time.sleep(0.5)
+        except FailSafeException as e:
+            title_text.value = "強制終了しました"
+            page.dialog = dlg
+            dlg.open = True
+            page.update()
+            return
+
+        title_text.value = "💫スクリーンショットOK"
+        page.dialog = dlg
+        dlg.open = True
+        page.update()
+
     screenshots_view = ButtonOnlyLayout("スクリーンショット開始", 
                                         margin_param=50,
                                         icon=icons.CAMERA_ALT_OUTLINED,
-                                        on_click_event=open_dlg_modal)
+                                        on_click_event=screenshots_start_click_button)
 
+    def dropdown_changed(e) -> Optional[str]:
+        page_scroll.value = dropdown_list.value
+        page.update()
 
-    locate_edits = Column(
-        controls=[
-            Row(
-                controls=[
-                    TextField(hint_text="ページ数", expand=True, bgcolor=colors.WHITE24,),
-                    ft.Dropdown(
+    dropdown_list = ft.Dropdown(
                         width=100,
+                        on_change=dropdown_changed,
                         options=[
                             ft.dropdown.Option("right"),
                             ft.dropdown.Option("left"),
                         ],
                     )
+
+    def page_count_changed(e) -> Optional[int]:
+        page_count.value = page_count_view.value
+        page.update()
+
+    page_count_view = TextField(
+                        hint_text="ページ数を数字で入力",
+                        on_change=page_count_changed,
+                        expand=True, 
+                        bgcolor=colors.WHITE24)
+    
+    locate_edits = Column(
+        controls=[
+            Row(
+                controls=[
+                    page_count_view,
+                    dropdown_list
                 ],
             ),
         ],
     )
-
 
     main_layout = Tabs(
         selected_index=0,
