@@ -1,13 +1,15 @@
 import os
 import math
 import time
+import shutil
+import img2pdf
 import datetime
 import pyautogui as pgui
 import flet as ft
 from flet import *
+from PIL import Image
 from typing import Optional
 from pyautogui import FailSafeException
-
 
 def width_calculate(width:int):
     golden_ratio = (1 + math.sqrt(5)) / 2
@@ -46,7 +48,6 @@ class ButtonOnlyLayout(UserControl):
                         padding=padding.only(left=80, top=70, bottom=70,right=80),
                         width=calc_width,
                         height=250,
-                        # bgcolor=colors.WHITE54
                     ),
                 ]
         )
@@ -64,7 +65,6 @@ def main(page:Page):
     page.window_height = height
     page.window_resizable = False
     page.update()
-    create_pdf_view = ButtonOnlyLayout("PDF作成", margin_param=0)
 
     def get_directory_result(e: ft.FilePickerResultEvent):
         directory_path.content.value = e.path if e.path else ""
@@ -95,34 +95,71 @@ def main(page:Page):
         title=title_text,
     )
 
+    def _dialog_open_text(text:str):
+        title_text.value = text
+        page.dialog = dlg
+        dlg.open = True
+        page.update()
+
+    def create_pdf_from_image(e):
+        pdf_file_name = "book.pdf"
+        path = directory_path.content.value
+        ext_p = ".png"
+        ext_j = ".jpg"
+        
+        if path == None or path == "":
+            _dialog_open_text(text="PDF化するフォルダを選択してください")
+            return
+        
+        try:
+            save_directory = "output_pdf" + "_" + str(datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
+            os.mkdir(save_directory)
+            with open(save_directory + "/" + pdf_file_name, "wb") as f:
+                imageLists = []
+                for item in os.listdir(path):
+                    if item.endswith(ext_p):
+                        image = Image.open(path + "/" + item)
+                        image = image.convert('RGB')
+                        image.save(save_directory + "/" + item[:-3] + 'jpg')
+                        imageLists = imageLists + [save_directory + "/" + item[:-3] + 'jpg']
+                    elif item.endswith(ext_j):
+                        image = Image.open(path + "/" + item)
+                        image = image.convert('RGB')
+                        imageLists = imageLists + [path + "/" + item]
+                    imageLists.sort()
+
+                f.write(img2pdf.convert(imageLists))
+            for imageLists in imageLists:
+                os.remove(imageLists)
+        except ValueError:
+            _dialog_open_text(text="フォルダ内に画像がありません\n強制終了しました")
+            shutil.rmtree(save_directory)
+            return
+        
+        _dialog_open_text(text="💫PDF作成終了")
+        page.update()
+
+    create_pdf_view = ButtonOnlyLayout("PDF作成", 
+                                        margin_param=0,
+                                        on_click_event=create_pdf_from_image)
+    
     def screenshots_start_click_button(e):
         count = page_count.value
 
         if count == None:
-            title_text.value = "空白にしないでください"
-            page.dialog = dlg
-            dlg.open = True
-            page.update()
+            _dialog_open_text(text="空白にしないでください")
             return
 
         if not count.isdigit():
-            title_text.value = "数字を入力してください"
-            page.dialog = dlg
-            dlg.open = True
-            page.update()
+            _dialog_open_text(text="数字を入力してください")
             return
 
         if page_scroll.value == None:
-            title_text.value = "ページスクロールを設定してください"
-            page.dialog = dlg
-            dlg.open = True
-            page.update()
+            _dialog_open_text(text="ページスクロールを設定してください")
             return
 
         try:
-            title_text.value = "5秒以内にKindleのページへ移動してください。"
-            page.dialog = dlg
-            dlg.open = True
+            _dialog_open_text(text="5秒以内にKindleのページへ移動してください")
             page.update()
 
             time.sleep(5)
@@ -143,15 +180,10 @@ def main(page:Page):
                 pgui.keyDown(page_scroll.value)
                 time.sleep(0.5)
         except FailSafeException as e:
-            title_text.value = "強制終了しました"
-            page.dialog = dlg
-            dlg.open = True
-            page.update()
+            _dialog_open_text(text="強制終了しました")
             return
-
-        title_text.value = "💫スクリーンショットOK"
-        page.dialog = dlg
-        dlg.open = True
+        
+        _dialog_open_text(text="💫スクリーンショット終了")
         page.update()
 
     screenshots_view = ButtonOnlyLayout("スクリーンショット開始", 
@@ -213,7 +245,6 @@ def main(page:Page):
                                             content=locate_edits,
                                             padding=padding.only(top=40,left=40, right=60),
                                             width=500,
-                                            # bgcolor=colors.AMBER_400,
                                         ),
                                         Container(
                                             content=Text(
@@ -225,7 +256,6 @@ def main(page:Page):
                                         )
                                     ]
                                 ),
-                                #ここは変えない
                                 screenshots_view,
                             ]
                         )
@@ -248,7 +278,6 @@ def main(page:Page):
                                         directory_path
                                     ]
                                 ),
-                                #ここは変えない
                                 create_pdf_view,
                             ]
                         )
